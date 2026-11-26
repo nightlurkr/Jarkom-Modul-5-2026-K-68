@@ -4,7 +4,7 @@ Komunikasi Data dan Jaringan Komputer 2026. Disalin dari soal asisten untuk arsi
 
 ## Peraturan praktikum
 
-- Dilaksanakan Senin 23 November 2026 sampai Kamis 26 November 2026 pukul 23.59 WIB. Diperpanjang ke Jumat 27 November 2026 pukul 13.00.
+- Dilaksanakan Senin 23 November 2026 sampai Kamis 26 November 2026 pukul 23.59 WIB. Diperpanjang dua kali: pertama ke Jumat 27 November 2026 pukul 13.00, lalu ke Sabtu 28 November 2026 pukul 07.00.
 - Saat selesai: ekspor file GNS3 project, gambar pohon pembagian IP, dan template spreadsheet.
 - Wajib image docker `ardhptr21/alpinet:latest` atau `ardhptr21/debinet:latest`.
 - Wajib GNS3 Web, Client, atau VM. Tidak boleh tools lain.
@@ -12,7 +12,7 @@ Komunikasi Data dan Jaringan Komputer 2026. Disalin dari soal asisten untuk arsi
 - Tidak boleh bekerja sama atau bertanya pengerjaan ke luar anggota kelompok.
 - Tidak boleh bertanya konfigurasi ke asisten. Boleh bertanya cara atau letak kesalahan.
 - Boleh memakai AI selama tidak mengkoneksikan agent langsung ke controller.
-- Demo ke asisten penguji paling lambat Kamis 26 November 2026.
+- Demo ke asisten penguji paling lambat Kamis 26 November 2026, ikut diperpanjang sampai Sabtu 28 November 2026 pukul 07.00.
 - Laporan resmi berupa link repository GitHub.
 - Saran asisten: backup konfigurasi di luar project GNS3.
 
