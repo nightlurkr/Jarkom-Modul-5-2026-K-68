@@ -3502,6 +3502,280 @@ conntrack, sehingga `ping -c2` menambah counter 1, bukan 2.
 
 ---
 
+## Babak 3: Mengamankan MAGI dan Zona Sensitif
+
+Soal 13 sampai 19. Menerapkan kebijakan firewall spesifik pada node dan router, termasuk *rate limiting*, *logging*, *DNAT*, hingga isolasi zona.
+
+---
+
+### Soal 13: Brankas Balthasar
+
+Yang diminta: Hanya Casper dan semua Pilot yang boleh menyambung ke TCP 5000 dan 5001 di Balthasar. Node lain harus langsung ditolak (REJECT). Balthasar tetap harus bisa ping 8.8.8.8.
+
+Implementasi: Konfigurasi diletakkan di dalam node Magi-Balthasar (`/root/soal13.sh`). Kami menggunakan `-m multiport` untuk menangani dua port sekaligus, dan memastikan rule `REJECT` diletakkan di paling bawah agar sisa trafik yang tidak diizinkan langsung dibanting.
+
+```bash
+iptables -F INPUT
+iptables -A INPUT -i lo -j ACCEPT
+iptables -A INPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
+
+# Izinkan Casper dan Pilot
+iptables -A INPUT -s 192.245.4.58 -p tcp -m multiport --dports 5000,5001 -j ACCEPT
+iptables -A INPUT -s 192.245.4.66 -p tcp -m multiport --dports 5000,5001 -j ACCEPT
+iptables -A INPUT -s 192.245.4.67 -p tcp -m multiport --dports 5000,5001 -j ACCEPT
+iptables -A INPUT -s 192.245.4.68 -p tcp -m multiport --dports 5000,5001 -j ACCEPT
+iptables -A INPUT -s 192.245.3.130 -p tcp -m multiport --dports 5000,5001 -j ACCEPT
+
+# Tolak seketika
+iptables -A INPUT -p tcp -m multiport --dports 5000,5001 -j REJECT
+```
+
+Bukti:
+
+Unit-01 (Pilot) berhasil menyambung:
+
+![Soal 13 Unit-01](screenshot/Soal_13_Unit-01.png)
+
+Lilith (Staf) langsung ditolak seketika (Connection refused):
+
+![Soal 13 Lilith](screenshot/Soal_13_Lilith.png)
+
+---
+
+### Soal 14: Jam kunjungan sang pinguin
+
+Yang diminta: Membatasi ping dan TCP 80 ke Pen-Pen berdasarkan jadwal WIB menggunakan modul `-m time`. Pen-Pen harus menolak Dummy System secara permanen.
+
+Jebakan Logika & Implementasi: Waktu di iptables menggunakan UTC (WIB - 7 jam). Jadwal Pilot (08.00-16.00 WIB) menjadi `01:00 - 09:00 UTC`. Terdapat jebakan pada penggunaan rule `ACCEPT` di paling bawah. Jika jadwal tidak cocok, paket akan jatuh ke rule `ACCEPT` terakhir. Oleh karena itu, setelah rule `ACCEPT` berbasis waktu, wajib ditambahkan rule `REJECT` eksplisit untuk subnet tersebut.
+
+```bash
+iptables -F INPUT
+iptables -A INPUT -i lo -j ACCEPT
+iptables -A INPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
+
+# Pilot (Senin-Jumat, 01:00 - 09:00 UTC)
+iptables -A INPUT -s 192.245.4.64/29 -p icmp -m time --timestart 01:00 --timestop 09:00 --weekdays Mon,Tue,Wed,Thu,Fri -j ACCEPT
+iptables -A INPUT -s 192.245.4.64/29 -p icmp -j REJECT # Mencegah jatuh ke rule ACCEPT di bawah
+
+# Staf (Setiap hari, 10:00 - 16:00 UTC)
+iptables -A INPUT -s 192.245.4.74 -p icmp -m time --timestart 10:00 --timestop 16:00 -j ACCEPT
+iptables -A INPUT -s 192.245.4.74 -p icmp -j REJECT
+
+# Dummy System (Selalu ditolak)
+iptables -A INPUT -s 192.245.4.102 -j REJECT # Spy
+iptables -A INPUT -s 192.245.4.50 -j REJECT  # Entry-Plug
+iptables -A INPUT -s 192.245.4.51 -j REJECT  # Dummy-Plug
+```
+
+Bukti:
+
+Unit-01 (Pilot) gagal saat di luar jam operasional:
+
+![Soal 14 Unit](screenshot/Soal_14_Unit.png)
+
+Lilith (Staf) berhasil saat jam kunjungan cocok:
+
+![Soal 14 Lilith](screenshot/Soal_14_Lilith.png)
+
+Dummy-Plug selalu ditolak:
+
+![Soal 14 Dummy](screenshot/Soal_14_Dummy.png)
+
+---
+
+### Soal 15 & 16: Banjir Ping dan Pencuri di Tokyo3-Core
+
+Yang diminta (Soal 15): Membatasi ping ke Tokyo3-Core maksimal 5 per detik, membuang kelebihannya.
+Yang diminta (Soal 16): Mencatat setiap koneksi dari Dummy-Plug ke port 22, 23, dan 3306 dengan prefix SCAN-NERV: dan menolaknya seketika.
+
+Implementasi (Urutan Sangat Penting!): Rule `limit` ping wajib diletakkan di paling atas sebelum rule `ESTABLISHED,RELATED`. Jika diletakkan di bawah, paket ping selanjutnya akan dianggap sebagai koneksi aktif (ESTABLISHED) oleh conntrack dan langsung lolos tanpa terkena limit.
+
+```bash
+iptables -F INPUT
+
+# Soal 15: Rate Limit (Taruh paling atas)
+iptables -A INPUT -p icmp --icmp-type echo-request -m limit --limit 5/second -j ACCEPT
+iptables -A INPUT -p icmp --icmp-type echo-request -j DROP
+
+# Rule standar
+iptables -A INPUT -i lo -j ACCEPT
+iptables -A INPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
+
+# Soal 16: Log & Tolak Dummy-Plug
+iptables -A INPUT -s 192.245.4.51 -p tcp -m multiport --dports 22,23,3306 -j LOG --log-prefix "SCAN-NERV: "
+iptables -A INPUT -s 192.245.4.51 -p tcp -m multiport --dports 22,23,3306 -j REJECT
+```
+
+Bukti:
+
+Ping spam dari Lilith memicu rule DROP (counter naik) dan koneksi Dummy-Plug ditolak seketika:
+
+![Soal 15-16 Tokyo](screenshot/Soal_15-16_Tokyo.png)
+
+Ping dari Lilith terlihat loss parah:
+
+![Soal 15 Lilith](screenshot/Soal_15_Lilith.png)
+
+Dummy-Plug ditolak seketika:
+
+![Soal 16 Dummy](screenshot/Soal_16_Dummy.png)
+
+---
+
+### Soal 17: Sihir hitam di jalur paket (DNAT)
+
+Yang diminta: Di router Fuyutsuki, mengalihkan koneksi TCP port 9000 dari Casper ke Zeruel agar sampai ke Pen-Pen, tanpa Casper sadar.
+
+Implementasi: Kami menggunakan DNAT pada tabel nat PREROUTING untuk mengubah tujuan paket, dan MASQUERADE (SNAT) pada POSTROUTING agar balasan dari Pen-Pen dikira datang dari Zeruel oleh Casper.
+
+```bash
+# 1. Alihkan Tujuan (DNAT)
+iptables -t nat -A PREROUTING -s 192.245.4.58 -d 192.245.4.82 -p tcp --dport 9000 -j DNAT --to-destination 192.245.3.195:9000
+
+# 2. Ubah Sumber (SNAT) agar seolah dari Zeruel
+iptables -t nat -A POSTROUTING -d 192.245.3.195 -p tcp --dport 9000 -j MASQUERADE
+```
+
+Bukti:
+
+Pesan dikirim dari Casper:
+
+![Soal 17 Casper](screenshot/Soal_17_Casper.png)
+
+Pesan diterima oleh Pen-Pen:
+
+![Soal 17 Pen](screenshot/Soal_17_Pen.png)
+
+Zeruel tidak menerima apa pun:
+
+![Soal 17 Zeruel](screenshot/Soal_17_Zeruel.png)
+
+Tabel conntrack membuktikan alih rute dari Casper ke Pen-Pen:
+
+![Soal 17 Fuyutsuki](screenshot/Soal_17_Fuyutsuki.png)
+
+---
+
+### Soal 18: Gerbang Monolith dan Radar
+
+Yang diminta: Di router Shigeru, node luar tidak boleh memulai koneksi ke dalam zona. Pengecualian: ping dari subnet Terminal. Dilarang menulis subnet luar satu per satu (harus berbasis arah interface).
+
+Implementasi: Karena interface `eth0` Shigeru selalu menghadap Gendou (sisi luar), kami memblokir semua koneksi `NEW` yang masuk lewat `eth0`, kecuali yang berasal dari Subnet Terminal (`192.245.4.56/29`).
+(Catatan: Karena terdapat NAT dari router sebelumnya, kami juga menambahkan IP Gendou sebagai pengecualian agar ping Casper bisa lolos).
+
+```bash
+iptables -A FORWARD -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
+iptables -A FORWARD -i eth0 -p icmp -s 192.245.4.56/29 -j ACCEPT
+# Pengecualian IP Gendou jika Casper ter-NAT
+iptables -A FORWARD -i eth0 -p icmp -s 192.245.4.129 -j ACCEPT
+# Blokir koneksi baru dari luar
+iptables -A FORWARD -i eth0 -m conntrack --ctstate NEW -j DROP
+```
+
+Bukti:
+
+Casper (Terminal) berhasil ping ke Zeruel:
+
+![Soal 18 Casper](screenshot/Soal_18_Casper.png)
+
+Lilith (Luar zona) gagal ping ke Zeruel:
+
+![Soal 18 Lilith](screenshot/Soal_18_Lilith.png)
+
+---
+
+### Soal 19: Hukuman untuk sang pengkhianat
+
+Yang diminta: Isolasi Armisael dari semua lalu lintas, namun Zeruel tidak boleh terhukum. Isolasi tidak boleh dilakukan di dalam Armisael.
+
+Analisis & Implementasi: Kami menerapkan rule `DROP` di chain FORWARD Router Shigeru untuk IP Armisael. 
+Temuan Penting: Rule di Shigeru tidak cukup untuk memblokir ping dari Armisael ke Zeruel, karena keduanya berada di satu switch (Layer 2). Paket tidak melewati router. Oleh karena itu, kami memblokir sisa trafik L2 tersebut dari dalam node Zeruel.
+
+```bash
+# Di Router Shigeru (Isolasi L3)
+iptables -I FORWARD -s 192.245.4.83 -j DROP
+iptables -I FORWARD -d 192.245.4.83 -j DROP
+
+# Di Node Zeruel (Isolasi L2 agar tidak bisa saling ping)
+iptables -A INPUT -s 192.245.4.83 -j DROP
+```
+
+Bukti:
+
+Armisael 100% loss ke Zeruel, Lilith, dan Internet:
+
+![Soal 19 Armisael](screenshot/Soal_19_Armisael.png)
+
+Zeruel aman dan masih bisa ping ke luar:
+
+![Soal 19 Zeruel](screenshot/Soal_19_Zeruel.png)
+
+---
+
+## Babak Final: Siap Dihancurkan, Siap Dibangun Lagi
+
+### Soal 20: Uji kebakaran Geofront
+
+Yang diminta: Memilih 3 node (minimal 1 router), menyimpan rule ke `/root/<nama>.rules`, menghancurkan, lalu me-restore 2x berturut-turut. Membuktikan tidak ada duplikasi rule.
+
+Implementasi & Otomatisasi: Kami memilih Gendou (Router), Shigeru (Router), dan Magi-Balthasar (Host). 
+Khusus router, pembuatan script backup rute diotomatiskan menggunakan `sed` agar tidak perlu mengetik manual:
+
+```bash
+# Backup Firewall (Semua Node)
+iptables-save > /root/backup.rules
+
+# Backup Rute Otomatis (Khusus Router)
+ip route | grep -v "proto kernel" | grep -v "default" | sed 's/^/ip route add /' > /root/rute_backup.sh
+```
+
+Simulasi Bencana: Semua rule dihapus (`iptables -F`, `iptables -t nat -F`) dan rute dihapus.
+
+Pemulihan & Idempotensi: Restore dilakukan 2x:
+
+```bash
+iptables-restore < /root/backup.rules
+bash /root/rute_backup.sh
+```
+
+Analisis `RTNETLINK answers: File exists`: Saat restore rute dijalankan, muncul pesan error `RTNETLINK answers: File exists`. Ini adalah bukti keberhasilan. Pesan ini muncul karena sistem menolak menambahkan rute yang sudah ada (tidak menduplikasi). Ini membuktikan script bersifat idempoten.
+
+Bukti (Jumlah Baris Sama Persis):
+
+Gendou: Baseline (10 & 5) -> Restore 1 (10 & 5) -> Restore 2 (10 & 5).
+
+![Soal 20 Gendou 1](screenshot/Soal_20_Gendou_1.png)
+![Soal 20 Gendou 2](screenshot/Soal_20_Gendou_2.png)
+
+Shigeru: Baseline (8 & 4) -> Restore 1 (8 & 4) -> Restore 2 (8 & 4).
+
+![Soal 20 Shigeru 1](screenshot/Soal_20_Shigeru_1.png)
+![Soal 20 Shigeru 2](screenshot/Soal_20_Shigeru_2.png)
+
+Balthasar: Baseline (11 & 4) -> Restore (11 & 4).
+
+![Soal 20 Balthasar](screenshot/Soal_20_Balthasar.png)
+
+Bukti Node Berfungsi Kembali:
+
+Gendou bisa ping internet:
+
+![Soal 20 Gendou Ping](screenshot/Soal_20_Gendou_Ping.png)
+
+Shigeru bisa ping Zeruel:
+
+![Soal 20 Shigeru Ping](screenshot/Soal_20_Shigeru_Ping.png)
+
+Casper bisa ping Balthasar:
+
+![Soal 20 Casper Ping](screenshot/Soal_20_Casper_Ping.png)
+
+Armisael tetap terisolasi (rule firewall berfungsi):
+
+![Soal 20 Armisael Ping](screenshot/Soal_20_Armisael_Ping.png)
+
+---
+
 ## Struktur repository
 
 ```
