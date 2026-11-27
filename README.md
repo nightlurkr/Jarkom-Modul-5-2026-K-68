@@ -35,6 +35,7 @@ Laporan ini mencakup **Babak 1 dan Babak 2, soal 1 sampai 12**, yaitu bagian Rya
 - [Soal 10: Para pilot terkunci di dalam](#soal-10-para-pilot-terkunci-di-dalam)
 - [Soal 11: Casper harus jadi hantu](#soal-11-casper-harus-jadi-hantu)
 - [Soal 12: Teknisi yang kelewat semangat](#soal-12-teknisi-yang-kelewat-semangat)
+- [Babak 3: Mengamankan MAGI dan Zona Sensitif](#babak-3-mengamankan-magi-dan-zona-sensitif)
 - [Soal 13: Brankas Balthasar](#soal-13-brankas-balthasar)
 - [Soal 14: Jam kunjungan sang pinguin](#soal-14-jam-kunjungan-sang-pinguin)
 - [Soal 15 & 16: Banjir Ping dan Pencuri di Tokyo3-Core](#soal-15--16-banjir-ping-dan-pencuri-di-tokyo3-core)
@@ -3479,7 +3480,7 @@ Unit-01 (Pilot) berhasil menyambung:
 
 Lilith (Staf) langsung ditolak seketika (Connection refused):
 
-![Soal 13 Lilith](screenshot/Soal_13_Lilith.png)
+![Soal 13 Lilith](screenshot/Soal_13_Lillith.png)
 
 ---
 
