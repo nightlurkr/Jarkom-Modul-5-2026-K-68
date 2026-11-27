@@ -3556,7 +3556,7 @@ Ping spam dari Lilith memicu rule DROP (counter naik) dan koneksi Dummy-Plug dit
 
 Ping dari Lilith terlihat loss parah:
 
-![Soal 15 Lilith](screenshot/Soal_15_Lilith.png)
+![Soal 15 Lilith](screenshot/Soal_15_Lillith.png)
 
 Dummy-Plug ditolak seketika:
 
