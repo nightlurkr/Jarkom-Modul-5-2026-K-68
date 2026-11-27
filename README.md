@@ -5,7 +5,7 @@ Laporan pengerjaan Praktikum Komunikasi Data dan Jaringan Komputer Modul 5.
 | | |
 |---|---|
 | Kelompok | K-68 |
-| Anggota | Ryan Adya Purwanto (5027231046), Made Gde Krisna Wangsa |
+| Anggota | Ryan Adya Purwanto (5027231046), Made Gde Krisna Wangsa (5027201047)|
 | Prefix kelompok | `192.245.0.0/16` |
 | Controller | Group C, `http://10.4.89.250/` (wajib jaringan atau VPN ITS) |
 | Image router | `ardhptr21/debinet:latest` |
@@ -35,6 +35,14 @@ Laporan ini mencakup **Babak 1 dan Babak 2, soal 1 sampai 12**, yaitu bagian Rya
 - [Soal 10: Para pilot terkunci di dalam](#soal-10-para-pilot-terkunci-di-dalam)
 - [Soal 11: Casper harus jadi hantu](#soal-11-casper-harus-jadi-hantu)
 - [Soal 12: Teknisi yang kelewat semangat](#soal-12-teknisi-yang-kelewat-semangat)
+- [Soal 13: Brankas Balthasar](#soal-13-brankas-balthasar)
+- [Soal 14: Jam kunjungan sang pinguin](#soal-14-jam-kunjungan-sang-pinguin)
+- [Soal 15 & 16: Banjir Ping dan Pencuri di Tokyo3-Core](#soal-15--16-banjir-ping-dan-pencuri-di-tokyo3-core)
+- [Soal 17: Sihir hitam di jalur paket (DNAT)](#soal-17-sihir-hitam-di-jalur-paket-dnat)
+- [Soal 18: Gerbang Monolith dan Radar](#soal-18-gerbang-monolith-dan-radar)
+- [Soal 19: Hukuman untuk sang pengkhianat](#soal-19-hukuman-untuk-sang-pengkhianat)
+- [Babak Final: Siap Dihancurkan, Siap Dibangun Lagi](#babak-final-siap-dihancurkan-siap-dibangun-lagi)
+- [Soal 20: Uji kebakaran Geofront](#soal-20-uji-kebakaran-geofront)
 - [Asumsi yang diambil](#asumsi-yang-diambil)
 - [Catatan teknis](#catatan-teknis)
 - [Struktur repository](#struktur-repository)
@@ -3435,73 +3443,6 @@ tidak diam-diam dilonggarkan demi membuat tesnya lulus.
 
 ---
 
-## Asumsi yang diambil
-
-Tiga tempat di mana soal tidak menyebut aturannya secara eksplisit, atau dua sumber di
-dalam soal saling bertentangan.
-
-**1. Gateway ikut dihitung dalam kebutuhan IP.** Soal tidak menyebutkannya, tapi
-glosarium menulis "gateway adalah IP usable pertama subnet". Tanpa menghitung gateway,
-Switch-Dogma dan Switch-Monolith akan jatuh ke `/30` yang tidak menyisakan alamat untuk
-gateway, sehingga subnetnya mustahil dipakai.
-
-**2. Urutan node di Switch-Medic mengikuti gambar, bukan tabel host.** Glosarium menulis
-urutan alamat mengikuti "urutan penulisan nama node pada switch di gambar (kiri ke kanan)".
-Di `topo_5.png`, Medic-Bay berada di kiri dan Pen-Pen di kanan, sedangkan tabel host di
-soal menomori Pen-Pen lebih dulu. Dipakai urutan gambar, sehingga Medic-Bay mendapat
-`192.245.3.194` dan Pen-Pen `192.245.3.195`. Ini satu-satunya titik di mana dua sumber
-di dalam soal berbeda.
-
-**3. Urutan 16 link antar router mengikuti urutan pohon dari Gendou ke bawah.** Soal
-memberi aturan tie-break "lalu urutan tabel", tapi link tidak dinomori di tabel host.
-Karena seluruh link berukuran `/30` yang sama, urutannya hanya menentukan blok mana yang
-didapat masing-masing, tidak mengubah struktur maupun jumlah alamat yang dipakai.
-
-**4. Nama file script mengikuti nama node.** Soal 5 menulis `gendo.sh` sedangkan node
-bernama Gendou, dan soal 7 menulis `/root/<nama>.sh`. Dipakai `gendou.sh` mengikuti nama
-node yang sebenarnya.
-
----
-
-## Catatan teknis
-
-Hal-hal yang ditemukan saat pengerjaan dan berguna untuk diulang.
-
-**Hanya `/root` dan `/etc/network/interfaces` yang bertahan saat node Docker direstart.**
-Isi `/etc` lain dan seluruh paket yang di-install hilang. Semua konfigurasi karena itu
-ditulis lewat script di `/root`, dan script yang butuh paket memuat `apt-get install`
-di dalamnya.
-
-**Editor "Edit network configuration" di GNS3 membuang baris yang mengandung tanda `>`.**
-Semua heredoc `cat >` dan redirect karena itu diketik lewat console node, bukan lewat
-editor tersebut.
-
-**Jumlah adapter diubah per node, bukan lewat Edit lalu Preferences.** Controller lab
-dipakai bersama seluruh kelompok, dan mengubah template akan berdampak ke kelompok lain.
-
-**`ifup` tidak ada di image debinet.** Yang ada hanya di alpinet lewat busybox. Untuk
-menerapkan alamat pada node debinet dipakai `ip addr replace` dan `ip route replace`.
-
-**Link di GNS3 bisa nyangkut setelah node direstart.** Gejalanya konfigurasi benar di
-kedua ujung tapi traffic tidak lewat, dan ARP hanya berhasil satu arah. Terjadi pada
-Switch-Cage saat soal 6. Perbaikannya mematikan dan menyalakan node, atau menghapus dan
-memasang ulang kabelnya.
-
-**Cara membaca pesan error ping:**
-
-| Pesan | Artinya |
-|---|---|
-| `Network is unreachable` | router tidak punya rute, masalah routing |
-| `Destination Host Unreachable` | rute ada, tujuannya yang tidak menjawab ARP |
-| Timeout tanpa pesan | paket dibuang diam-diam, biasanya firewall |
-
-Alamat pengirim pesan error menunjukkan sampai mana paket berhasil menempuh jalur.
-
-**Tabel `nat` hanya dilewati paket pertama setiap koneksi.** Paket berikutnya ditangani
-conntrack, sehingga `ping -c2` menambah counter 1, bukan 2.
-
----
-
 ## Babak 3: Mengamankan MAGI dan Zona Sensitif
 
 Soal 13 sampai 19. Menerapkan kebijakan firewall spesifik pada node dan router, termasuk *rate limiting*, *logging*, *DNAT*, hingga isolasi zona.
@@ -3749,8 +3690,7 @@ Gendou: Baseline (10 & 5) -> Restore 1 (10 & 5) -> Restore 2 (10 & 5).
 
 Shigeru: Baseline (8 & 4) -> Restore 1 (8 & 4) -> Restore 2 (8 & 4).
 
-![Soal 20 Shigeru 1](screenshot/Soal_20_Shigeru_1.png)
-![Soal 20 Shigeru 2](screenshot/Soal_20_Shigeru_2.png)
+![Soal 20 Shigeru](screenshot/Soal_20_Shigeru.png)
 
 Balthasar: Baseline (11 & 4) -> Restore (11 & 4).
 
@@ -3773,6 +3713,75 @@ Casper bisa ping Balthasar:
 Armisael tetap terisolasi (rule firewall berfungsi):
 
 ![Soal 20 Armisael Ping](screenshot/Soal_20_Armisael_Ping.png)
+
+---
+
+## Asumsi yang diambil
+
+Tiga tempat di mana soal tidak menyebut aturannya secara eksplisit, atau dua sumber di
+dalam soal saling bertentangan.
+
+**1. Gateway ikut dihitung dalam kebutuhan IP.** Soal tidak menyebutkannya, tapi
+glosarium menulis "gateway adalah IP usable pertama subnet". Tanpa menghitung gateway,
+Switch-Dogma dan Switch-Monolith akan jatuh ke `/30` yang tidak menyisakan alamat untuk
+gateway, sehingga subnetnya mustahil dipakai.
+
+**2. Urutan node di Switch-Medic mengikuti gambar, bukan tabel host.** Glosarium menulis
+urutan alamat mengikuti "urutan penulisan nama node pada switch di gambar (kiri ke kanan)".
+Di `topo_5.png`, Medic-Bay berada di kiri dan Pen-Pen di kanan, sedangkan tabel host di
+soal menomori Pen-Pen lebih dulu. Dipakai urutan gambar, sehingga Medic-Bay mendapat
+`192.245.3.194` dan Pen-Pen `192.245.3.195`. Ini satu-satunya titik di mana dua sumber
+di dalam soal berbeda.
+
+**3. Urutan 16 link antar router mengikuti urutan pohon dari Gendou ke bawah.** Soal
+memberi aturan tie-break "lalu urutan tabel", tapi link tidak dinomori di tabel host.
+Karena seluruh link berukuran `/30` yang sama, urutannya hanya menentukan blok mana yang
+didapat masing-masing, tidak mengubah struktur maupun jumlah alamat yang dipakai.
+
+**4. Nama file script mengikuti nama node.** Soal 5 menulis `gendo.sh` sedangkan node
+bernama Gendou, dan soal 7 menulis `/root/<nama>.sh`. Dipakai `gendou.sh` mengikuti nama
+node yang sebenarnya.
+
+---
+
+## Catatan teknis
+
+Hal-hal yang ditemukan saat pengerjaan dan berguna untuk diulang.
+
+**Hanya `/root` dan `/etc/network/interfaces` yang bertahan saat node Docker direstart.**
+Isi `/etc` lain dan seluruh paket yang di-install hilang. Semua konfigurasi karena itu
+ditulis lewat script di `/root`, dan script yang butuh paket memuat `apt-get install`
+di dalamnya.
+
+**Editor "Edit network configuration" di GNS3 membuang baris yang mengandung tanda `>`.**
+Semua heredoc `cat >` dan redirect karena itu diketik lewat console node, bukan lewat
+editor tersebut.
+
+**Jumlah adapter diubah per node, bukan lewat Edit lalu Preferences.** Controller lab
+dipakai bersama seluruh kelompok, dan mengubah template akan berdampak ke kelompok lain.
+
+**`ifup` tidak ada di image debinet.** Yang ada hanya di alpinet lewat busybox. Untuk
+menerapkan alamat pada node debinet dipakai `ip addr replace` dan `ip route replace`.
+
+**Link di GNS3 bisa nyangkut setelah node direstart.** Gejalanya konfigurasi benar di
+kedua ujung tapi traffic tidak lewat, dan ARP hanya berhasil satu arah. Terjadi pada
+Switch-Cage saat soal 6. Perbaikannya mematikan dan menyalakan node, atau menghapus dan
+memasang ulang kabelnya.
+
+**Cara membaca pesan error ping:**
+
+| Pesan | Artinya |
+|---|---|
+| `Network is unreachable` | router tidak punya rute, masalah routing |
+| `Destination Host Unreachable` | rute ada, tujuannya yang tidak menjawab ARP |
+| Timeout tanpa pesan | paket dibuang diam-diam, biasanya firewall |
+
+Alamat pengirim pesan error menunjukkan sampai mana paket berhasil menempuh jalur.
+
+**Tabel `nat` hanya dilewati paket pertama setiap koneksi.** Paket berikutnya ditangani
+conntrack, sehingga `ping -c2` menambah counter 1, bukan 2.
+
+---
 
 ---
 
